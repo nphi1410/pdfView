@@ -25,7 +25,7 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
   void getSize() async {
     try {
       PdfDocument document = await PdfDocument.openUri(Uri.parse(widget.url));
-      if (document != null && document.pages.isNotEmpty) {
+      if (document.pages.isNotEmpty) {
         setState(() {
           pageWidth = document.pages[0].width.toDouble();
           pageHeight = document.pages[0].height.toDouble();
