@@ -1,100 +1,69 @@
+import 'dart:async';
+import 'dart:ffi';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'package:pdfrx/pdfrx.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class MyPdfViewer extends StatefulWidget {
-  final String url;
-  MyPdfViewer(this.url);
+  final Uint8List url;
+  MyPdfViewer({required this.url});
 
   @override
   _MyPdfViewerState createState() => _MyPdfViewerState();
 }
 
 class _MyPdfViewerState extends State<MyPdfViewer> {
-  String x = '0', y = '0', pageNum = '0';
-  double? pageWidth, widDx, pageHeight, widDy, totalHeight;
-  double? zoomLevel=1.0;
+  double? x, y,reflectY;
+  int? tapedPage;
+  late Future<Uint8List> originData;
+  late Future<Uint8List> editData;
 
   @override
   void initState() {
     super.initState();
-    getSize();
+    originData = Future.value(widget.url);
+    editData = Future.value(widget.url);
   }
 
-  void getSize() async {
-    try {
-      PdfDocument document = await PdfDocument.openUri(Uri.parse(widget.url));
-      if (document.pages.isNotEmpty) {
-        setState(() {
-          pageWidth = document.pages[0].width.toDouble();
-          pageHeight = document.pages[0].height.toDouble();
-          totalHeight = document.pages.length.toDouble() * (pageHeight ?? 0);
-        });
-      } else {
-        print('Error: Unable to load PDF document');
-      }
-    } catch (e) {
-      print('Error: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double aspectRatio = screenWidth / (pageWidth ?? 1);
-    double fitWidth = (pageWidth ?? 0) * aspectRatio;
-    double fitHeight = (totalHeight ?? 0) * aspectRatio;
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         backgroundColor: Colors.blue,
-        title: Text('height:${pageHeight?.toStringAsFixed(2)}/ ${totalHeight?.toStringAsFixed(2)}'),
+        title: Text('Pdf view'),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: Container(
-                  width: fitWidth,
-                  height: fitHeight,
-                  child: Stack(
-                    children: [
-                      SfPdfViewer.network(
-                        widget.url,
-                        pageSpacing: 5.0,
-                        onTap: (details) {
-                          setState(() {
-                            widDx = details.position.dx;
-                            widDy = details.position.dy;
-                            x = details.pagePosition.dx.toStringAsFixed(2);
-                            y = (pageHeight! - details.pagePosition.dy).toStringAsFixed(2);
-                            pageNum = details.pageNumber.toString();
-                          });
-                        },
-                        onZoomLevelChanged: (details) {
-                          setState(() {
-                            zoomLevel = details.newZoomLevel;
-                          });
-                          print('widX:$widDx');
-                          print('widY:$widDy');
-                          },
-
-                      ),
-                      if (widDx != null && widDy != null && x != '-1.00' && y != '-1.00')
-                        Positioned(
-                          top: widDy! - 18,
-                          left: widDx! - 6,
-                          child: Icon(Icons.edit),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+            child: FutureBuilder<Uint8List>(
+              future: editData,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  if (snapshot.hasData) {
+                    return SfPdfViewer.memory(
+                      snapshot.data!,
+                      onTap: (details) {
+                        setState(() {
+                          tapedPage = details.pageNumber;
+                          x = details.pagePosition.dx;
+                          y = details.pagePosition.dy;
+                          PdfDocument doc = PdfDocument(inputBytes: snapshot.data);
+                          reflectY = doc.pages[tapedPage!].size.height - y!;
+                        });
+                        _addAnnotation();
+                      },
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error loading PDF'));
+                  }
+                }
+                return Center(child: CircularProgressIndicator());
+              },
             ),
           ),
           Container(
@@ -102,7 +71,7 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
             padding: EdgeInsets.all(8.0),
             child: Center(
               child: Text(
-                'x: $x y: $y page: $pageNum',
+                'x: ${(x??0).toStringAsFixed(2)} y: ${(y??0).toStringAsFixed(2)} page: $tapedPage',
                 style: TextStyle(
                   fontSize: 16,
                 ),
@@ -112,5 +81,30 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
         ],
       ),
     );
+  }
+
+  Future<void> _addAnnotation() async {
+    Uint8List originBytes = await originData;
+    PdfDocument document = PdfDocument(inputBytes: originBytes);
+    PdfPage page = document.pages[(tapedPage! - 1)];
+
+    final String assetName = 'assets/pen.png'; // Corrected asset path
+    final ByteData? byteData = await rootBundle.load(assetName);
+    if (byteData == null) {
+      throw Exception('Failed to load PNG image');
+    }
+    final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+    final PdfBitmap pngImage = PdfBitmap(pngBytes);
+    final Rect imageRect = Rect.fromLTWH(x!, y! - 24, 24, 24);
+
+    page.graphics.drawImage(pngImage, imageRect);
+
+    final Uint8List updatedDocument = Uint8List.fromList(await document.save());
+    document.dispose();
+
+    setState(() {
+      editData = Future.value(updatedDocument);
+    });
   }
 }

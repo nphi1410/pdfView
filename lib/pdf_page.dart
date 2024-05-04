@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdf_view/sfpdf_viewer.dart';
 
-import 'entity.dart';
+import 'entity.dart'; // Assuming PdfUrl class is defined in entity.dart
 
 class MyPdfPage extends StatelessWidget {
   final List<PdfUrl> linkList;
@@ -18,9 +18,7 @@ class MyPdfPage extends StatelessWidget {
       body: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: Column(
-          children: linkList.asMap().entries.map((entry) {
-            final int index = entry.key;
-            final PdfUrl pdfUrl = entry.value;
+          children: linkList.map((pdfUrl) {
             return SizedBox(
               width: double.infinity, // Button width is full screen
               child: TextButton(
@@ -39,14 +37,14 @@ class MyPdfPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MyPdfViewer(pdfUrl.link),
+                      builder: (context) => MyPdfViewer(url: pdfUrl.bytes!),
                     ),
                   );
                 },
                 child: Align(
                   alignment: Alignment.centerLeft, // Align text to the left
                   child: Text(
-                    '${index + 1}. ${pdfUrl.title}',
+                    '${linkList.indexOf(pdfUrl) + 1}. ${pdfUrl.title}',
                     textAlign: TextAlign.left, // Set text alignment to left
                   ),
                 ),
