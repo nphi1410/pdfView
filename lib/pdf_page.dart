@@ -1,7 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdf_view/sfpdf_viewer.dart';
-
-import 'entity.dart'; // Assuming PdfUrl class is defined in entity.dart
+import 'entity.dart';
 
 class MyPdfPage extends StatelessWidget {
   final List<PdfUrl> linkList;
@@ -37,7 +37,7 @@ class MyPdfPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MyPdfViewer(url: pdfUrl.bytes!),
+                      builder: (context) => MyPdfViewer(url: pdfUrl.bytes ?? Uint8List(0)),
                     ),
                   );
                 },

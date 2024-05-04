@@ -17,6 +17,7 @@ class MyPdfViewer extends StatefulWidget {
 class _MyPdfViewerState extends State<MyPdfViewer> {
   double? x, y,reflectY;
   int? tapedPage;
+  double scrollAxis=0;
   late Future<Uint8List> originData;
   late Future<Uint8List> editData;
 
@@ -30,6 +31,7 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.sizeOf(context).width;
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -47,13 +49,18 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
                   if (snapshot.hasData) {
                     return SfPdfViewer.memory(
                       snapshot.data!,
+                      initialScrollOffset: Offset(0, scrollAxis),
                       onTap: (details) {
                         setState(() {
                           tapedPage = details.pageNumber;
                           x = details.pagePosition.dx;
                           y = details.pagePosition.dy;
                           PdfDocument doc = PdfDocument(inputBytes: snapshot.data);
-                          reflectY = doc.pages[tapedPage!].size.height - y!;
+                          double pageHeight = doc.pages[tapedPage!-1].size.height;
+                          double pageWidth = doc.pages[tapedPage!-1].size.width;
+                          double rate = screenWidth/pageWidth;
+                          reflectY = pageHeight - y!;
+                          scrollAxis = (tapedPage!-1)*pageHeight*rate;
                         });
                         _addAnnotation();
                       },
@@ -71,7 +78,7 @@ class _MyPdfViewerState extends State<MyPdfViewer> {
             padding: EdgeInsets.all(8.0),
             child: Center(
               child: Text(
-                'x: ${(x??0).toStringAsFixed(2)} y: ${(y??0).toStringAsFixed(2)} page: $tapedPage',
+                'x: ${(x??0).toStringAsFixed(2)} y: ${(reflectY??0).toStringAsFixed(2)} page: $tapedPage',
                 style: TextStyle(
                   fontSize: 16,
                 ),
